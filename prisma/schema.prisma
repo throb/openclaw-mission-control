@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Auth Models
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  totpSecret    String?   // For 2FA
+  totpVerified  Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  sessions      Session[]
+  auditLogs     AuditLog[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  
+  @@index([userId])
+}
+
+// ============================================
+// Agent Models
+// ============================================
+
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      AgentStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  fileVersions FileVersion[]
+  tasks        Task[]
+  cronJobs     CronJob[]
+  projects     ProjectAgent[]
+}
+
+enum AgentStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+// ============================================
+// File Versioning
+// ============================================
+
+model FileVersion {
+  id              String   @id @default(cuid())
+  filePath        String   // e.g., "agents/main/agent.md" or "SOUL.md"
+  content         String   @db.Text
+  contentHash     String
+  message         String?  // Commit message
+  agentId         String?  // Who made the change (null = human)
+  agent           Agent?   @relation(fields: [agentId], references: [id])
+  parentVersionId String?
+  parentVersion   FileVersion? @relation("VersionChain", fields: [parentVersionId], references: [id])
+  childVersions   FileVersion[] @relation("VersionChain")
+  createdAt       DateTime @default(now())
+  
+  @@index([filePath, createdAt(sort: Desc)])
+}
+
+// ============================================
+// Project & Kanban Models
+// ============================================
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  boards      Board[]
+  agents      ProjectAgent[]
+}
+
+model ProjectAgent {
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  role      String? // e.g., "lead", "contributor"
+  
+  @@id([projectId, agentId])
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  name      String
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  columns   Column[]
+  
+  @@index([projectId])
+}
+
+model Column {
+  id       String @id @default(cuid())
+  name     String
+  position Int
+  boardId  String
+  board    Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  
+  tasks    Task[]
+  
+  @@index([boardId])
+}
+
+model Task {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?  @db.Text
+  priority        Priority @default(P2)
+  position        Int
+  columnId        String
+  column          Column   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  assignedAgentId String?
+  assignedAgent   Agent?   @relation(fields: [assignedAgentId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  threads         Thread[]
+  attachments     Attachment[]
+  
+  @@index([columnId])
+}
+
+enum Priority {
+  P0
+  P1
+  P2
+  P3
+  P4
+}
+
+// ============================================
+// Thread & Feedback Models
+// ============================================
+
+model Thread {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  messages  Message[]
+  
+  @@index([taskId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  authorType AuthorType
+  authorId  String?  // User ID or Agent ID
+  createdAt DateTime @default(now())
+  
+  attachments Attachment[]
+  
+  @@index([threadId])
+}
+
+enum AuthorType {
+  USER
+  AGENT
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  filename  String
+  mimeType  String
+  size      Int
+  url       String   // Local path or S3 URL
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// ============================================
+// Cron & Model Management
+// ============================================
+
+model CronJob {
+  id          String   @id @default(cuid())
+  name        String
+  schedule    String   // Cron expression or OpenClaw schedule JSON
+  payload     Json
+  agentId     String?
+  agent       Agent?   @relation(fields: [agentId], references: [id])
+  enabled     Boolean  @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Reference to OpenClaw cron job ID
+  openclawJobId String? @unique
+}
+
+model AIModel {
+  id               String   @id @default(cuid())
+  provider         String   // anthropic, openai, google, xai
+  modelId          String   // claude-opus-4-5, gpt-4, etc.
+  displayName      String
+  apiKeyEncrypted  String?  @db.Text
+  isDefault        Boolean  @default(false)
+  config           Json?    // Extra config like cost, context window
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@unique([provider, modelId])
+}
+
+// ============================================
+// Audit Logging
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // e.g., "agent.create", "task.update", "model.apikey.view"
+  target    String?  // e.g., "agent:xxx", "task:yyy"
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt(sort: Desc)])
+}

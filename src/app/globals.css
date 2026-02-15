@@ -4,26 +4,53 @@
 
 @layer base {
   :root {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 4.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 4.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    /* Near-black base with faint blue undertone */
+    --background: 220 20% 6%;
+    --foreground: 200 25% 90%;
+
+    /* Slightly lifted surface — blue-tinted */
+    --card: 220 25% 11%;
+    --card-foreground: 200 25% 90%;
+    --popover: 220 18% 10%;
+    --popover-foreground: 200 25% 90%;
+
+    /* Marmalade — warm sunset orange primary */
+    --primary: 26 97% 66%;
+    --primary-foreground: 220 30% 6%;
+
+    /* Subtle surface variation */
+    --secondary: 220 15% 12%;
+    --secondary-foreground: 200 20% 85%;
+
+    /* Muted tones */
+    --muted: 220 15% 12%;
+    --muted-foreground: 200 12% 45%;
+
+    /* Mulled Wine — purple accent */
+    --accent: 264 22% 22%;
+    --accent-foreground: 260 20% 88%;
+
+    /* Red Shimmer for destructive only */
+    --destructive: 4 70% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+
+    /* Borders & inputs — very subtle */
+    --border: 220 12% 15%;
+    --input: 220 12% 15%;
+    --ring: 26 97% 66%;
+
     --radius: 0.5rem;
+
+    /* Extended palette */
+    --marmalade: 26 97% 66%;
+    --gold: 48 100% 73%;
+    --wine: 264 22% 31%;
+    --shimmer: 4 98% 66%;
+    --ice: 197 48% 86%;
+
+    /* Sidebar */
+    --sidebar-bg: 220 25% 4.5%;
+    --sidebar-border: 220 15% 12%;
   }
 }
 
@@ -37,19 +64,40 @@
   }
 }
 
-/* Custom scrollbar for dark mode */
+/* Very subtle gradient - almost imperceptible warmth */
+.bg-main-gradient {
+  background: linear-gradient(
+    160deg,
+    hsl(220 20% 6%) 0%,
+    hsl(225 18% 5.5%) 60%,
+    hsl(250 15% 6%) 100%
+  );
+}
+
+/* Subtle card glow on hover — cool blue glow */
+.card-glow {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.card-glow:hover {
+  box-shadow:
+    0 0 0 1px hsl(210 60% 50% / 0.12),
+    0 4px 24px -4px hsl(210 70% 50% / 0.15);
+  border-color: hsl(210 50% 30% / 0.4);
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
-  border-radius: 4px;
+  background: hsl(var(--border));
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -59,4 +107,34 @@
 /* Monaco editor dark theme overrides */
 .monaco-editor {
   background: hsl(var(--card)) !important;
+}
+
+/* Sidebar active link — warm gradient accent */
+.sidebar-active {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.1) 0%,
+    hsl(var(--gold) / 0.06) 100%
+  );
+}
+
+/* Warm gradient text — sunset feel */
+.text-gradient-warm {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--gold)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gold shimmer */
+.text-gradient-gold {
+  background: linear-gradient(135deg, hsl(var(--marmalade)), hsl(var(--gold)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Ice-blue text for sidebar */
+.text-ice {
+  color: hsl(var(--ice));
 }

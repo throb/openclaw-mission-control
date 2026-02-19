@@ -1,9 +1,18 @@
 'use client';
 
 import { Draggable } from '@hello-pangea/dnd';
-import { GripVertical, MessageSquare, Paperclip, Bot } from 'lucide-react';
+import { GripVertical, MessageSquare, Paperclip, Bot, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+
+function timeAgo(date: string): string {
+  const diff = Date.now() - new Date(date).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return 'just now';
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
 
 export interface TaskData {
   id: string;
@@ -67,9 +76,15 @@ export function TaskCard({ task, index, onClick }: TaskCardProps) {
             </div>
 
             <div className="flex-1 min-w-0 space-y-2">
-              <p className="text-sm font-medium leading-snug truncate">
+              <p className="text-sm font-medium leading-snug line-clamp-2">
                 {task.title}
               </p>
+
+              {task.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                  {task.description}
+                </p>
+              )}
 
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge
@@ -89,22 +104,24 @@ export function TaskCard({ task, index, onClick }: TaskCardProps) {
                 )}
               </div>
 
-              {(task._count.threads > 0 || task._count.attachments > 0) && (
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {task._count.threads > 0 && (
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" />
-                      {task._count.threads}
-                    </span>
-                  )}
-                  {task._count.attachments > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Paperclip className="h-3 w-3" />
-                      {task._count.attachments}
-                    </span>
-                  )}
-                </div>
-              )}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {task._count.threads > 0 && (
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3" />
+                    {task._count.threads}
+                  </span>
+                )}
+                {task._count.attachments > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Paperclip className="h-3 w-3" />
+                    {task._count.attachments}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 ml-auto font-mono">
+                  <Clock className="h-3 w-3" />
+                  {timeAgo(task.updatedAt)}
+                </span>
+              </div>
             </div>
           </div>
         </div>

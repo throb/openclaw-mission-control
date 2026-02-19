@@ -23,8 +23,14 @@ import {
   Trash2,
   FolderKanban,
   Save,
+  TrendingUp,
+  ListChecks,
+  CheckCircle,
+  BarChart3,
+  Bot,
 } from 'lucide-react';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 
 const KanbanBoard = dynamic(
   () => import('@/components/kanban/board').then((mod) => mod.KanbanBoard),
@@ -174,8 +180,30 @@ export default function ProjectDetailPage() {
     setEditDialogOpen(true);
   };
 
+  // Agent filter
+  const [activeAgentFilter, setActiveAgentFilter] = useState<string | null>(null);
+
   // Use all agents for the task assignment dropdown
   const agentsList = allAgents;
+
+  // Compute stats from boards
+  const stats = (() => {
+    if (!project) return { total: 0, inProgress: 0, done: 0, completionPct: 0, thisWeek: 0 };
+    let total = 0;
+    let inProgress = 0;
+    let done = 0;
+    for (const board of project.boards) {
+      for (const col of board.columns) {
+        const count = col._count.tasks;
+        total += count;
+        const name = col.name.toLowerCase();
+        if (name.includes('progress') || name.includes('review')) inProgress += count;
+        if (name.includes('done') || name.includes('complete')) done += count;
+      }
+    }
+    const completionPct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, inProgress, done, completionPct, thisWeek: 0 };
+  })();
 
   if (loading) {
     return (
@@ -240,6 +268,56 @@ export default function ProjectDetailPage() {
           </Button>
         </div>
       </div>
+
+      {/* Stats Bar */}
+      <div className="flex items-center gap-6 text-sm border-b border-border pb-4">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-mono font-bold">{stats.thisWeek}</span>
+          <span className="text-muted-foreground">this week</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <ListChecks className="h-3.5 w-3.5 text-primary" />
+          <span className="font-mono font-bold text-primary">{stats.inProgress}</span>
+          <span className="text-muted-foreground">in progress</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-mono font-bold">{stats.total}</span>
+          <span className="text-muted-foreground">total</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+          <span className="font-mono font-bold text-green-500">{stats.completionPct}%</span>
+          <span className="text-muted-foreground">completion</span>
+        </div>
+      </div>
+
+      {/* Filter Row */}
+      {allAgents.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge
+            variant={activeAgentFilter === null ? 'default' : 'outline'}
+            className="cursor-pointer"
+            onClick={() => setActiveAgentFilter(null)}
+          >
+            All
+          </Badge>
+          {allAgents.filter(a => a.status === 'ACTIVE').map((agent) => (
+            <Badge
+              key={agent.id}
+              variant={activeAgentFilter === agent.id ? 'default' : 'outline'}
+              className="cursor-pointer flex items-center gap-1"
+              onClick={() =>
+                setActiveAgentFilter(activeAgentFilter === agent.id ? null : agent.id)
+              }
+            >
+              <Bot className="h-3 w-3" />
+              {agent.name}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {/* Board selector */}
       {project.boards.length > 1 ? (

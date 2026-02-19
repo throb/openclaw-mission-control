@@ -11,7 +11,7 @@ import { TaskDetail } from './task-detail';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Plus, Loader2, LayoutGrid } from 'lucide-react';
+import { Plus, Loader2, LayoutGrid, Circle } from 'lucide-react';
 
 interface ColumnData {
   id: string;
@@ -35,6 +35,19 @@ interface Agent {
   id: string;
   name: string;
   status: string;
+}
+
+const COLUMN_DOT_COLORS: Record<string, string> = {
+  backlog: 'text-muted-foreground',
+  recurring: 'text-purple-400',
+  'in progress': 'text-primary',
+  review: 'text-gold',
+  done: 'text-green-500',
+  todo: 'text-blue-400',
+};
+
+function getColumnDotColor(name: string): string {
+  return COLUMN_DOT_COLORS[name.toLowerCase()] || 'text-muted-foreground';
 }
 
 interface KanbanBoardProps {
@@ -198,8 +211,9 @@ export function KanbanBoard({ boardId, agents = [] }: KanbanBoardProps) {
               {/* Column header */}
               <div className="flex items-center justify-between p-3 pb-2">
                 <div className="flex items-center gap-2">
+                  <Circle className={cn('w-2.5 h-2.5 fill-current', getColumnDotColor(column.name))} />
                   <h3 className="text-sm font-semibold">{column.name}</h3>
-                  <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                  <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5 font-mono">
                     {column.tasks.length}
                   </span>
                 </div>

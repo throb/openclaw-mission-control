@@ -11,14 +11,18 @@ import {
   Settings,
   LayoutDashboard,
   Zap,
+  Calendar,
+  Brain,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Agents', href: '/dashboard/agents', icon: Bot },
-  { name: 'Skills', href: '/dashboard/skills', icon: Zap },
   { name: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
+  { name: 'Agents', href: '/dashboard/agents', icon: Bot },
+  { name: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
+  { name: 'Memory', href: '/dashboard/memory', icon: Brain },
   { name: 'Cron Jobs', href: '/dashboard/cron', icon: Clock },
+  { name: 'Skills', href: '/dashboard/skills', icon: Zap },
   { name: 'Models', href: '/dashboard/models', icon: Cpu },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];

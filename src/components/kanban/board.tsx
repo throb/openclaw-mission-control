@@ -1,0 +1,304 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import {
+  DragDropContext,
+  Droppable,
+  type DropResult,
+} from '@hello-pangea/dnd';
+import { TaskCard, type TaskData } from './task-card';
+import { TaskDetail } from './task-detail';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { Plus, Loader2, LayoutGrid } from 'lucide-react';
+
+interface ColumnData {
+  id: string;
+  name: string;
+  position: number;
+  boardId: string;
+  tasks: TaskData[];
+}
+
+interface BoardData {
+  id: string;
+  name: string;
+  columns: ColumnData[];
+  project: {
+    id: string;
+    name: string;
+  };
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface KanbanBoardProps {
+  boardId: string;
+  agents?: Agent[];
+}
+
+export function KanbanBoard({ boardId, agents = [] }: KanbanBoardProps) {
+  const [board, setBoard] = useState<BoardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [showTaskDetail, setShowTaskDetail] = useState(false);
+
+  // Add task state
+  const [addingToColumn, setAddingToColumn] = useState<string | null>(null);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [creatingTask, setCreatingTask] = useState(false);
+
+  const fetchBoard = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/boards/${boardId}`);
+      if (!res.ok) throw new Error('Failed to fetch board');
+      const data = await res.json();
+      setBoard(data);
+    } catch (error) {
+      console.error('Failed to fetch board:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [boardId]);
+
+  useEffect(() => {
+    fetchBoard();
+  }, [fetchBoard]);
+
+  const handleDragEnd = async (result: DropResult) => {
+    const { draggableId, source, destination } = result;
+
+    // Dropped outside a droppable
+    if (!destination) return;
+
+    // No movement
+    if (
+      source.droppableId === destination.droppableId &&
+      source.index === destination.index
+    ) {
+      return;
+    }
+
+    if (!board) return;
+
+    // Optimistic update
+    const newColumns = [...board.columns];
+    const sourceCol = newColumns.find((c) => c.id === source.droppableId);
+    const destCol = newColumns.find((c) => c.id === destination.droppableId);
+    if (!sourceCol || !destCol) return;
+
+    const sourceTasks = [...sourceCol.tasks];
+    const [movedTask] = sourceTasks.splice(source.index, 1);
+
+    if (source.droppableId === destination.droppableId) {
+      // Same column reorder
+      sourceTasks.splice(destination.index, 0, {
+        ...movedTask,
+        position: destination.index,
+      });
+      sourceCol.tasks = sourceTasks.map((t, i) => ({ ...t, position: i }));
+    } else {
+      // Cross-column move
+      const destTasks = [...destCol.tasks];
+      destTasks.splice(destination.index, 0, {
+        ...movedTask,
+        columnId: destination.droppableId,
+        position: destination.index,
+      });
+      sourceCol.tasks = sourceTasks.map((t, i) => ({ ...t, position: i }));
+      destCol.tasks = destTasks.map((t, i) => ({ ...t, position: i }));
+    }
+
+    setBoard({ ...board, columns: newColumns });
+
+    // API call
+    try {
+      const res = await fetch(`/api/tasks/${draggableId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          columnId: destination.droppableId,
+          position: destination.index,
+        }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        await fetchBoard();
+      }
+    } catch {
+      // Revert on error
+      await fetchBoard();
+    }
+  };
+
+  const handleAddTask = async (columnId: string) => {
+    if (!newTaskTitle.trim()) return;
+    setCreatingTask(true);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTaskTitle.trim(),
+          columnId,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create task');
+      setNewTaskTitle('');
+      setAddingToColumn(null);
+      await fetchBoard();
+    } catch (error) {
+      console.error('Failed to create task:', error);
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const handleTaskClick = (task: TaskData) => {
+    setSelectedTaskId(task.id);
+    setShowTaskDetail(true);
+  };
+
+  const handleTaskDetailClose = () => {
+    setShowTaskDetail(false);
+    setSelectedTaskId(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!board) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <LayoutGrid className="h-12 w-12 mb-4" />
+        <p>Board not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-280px)]">
+          {board.columns.map((column) => (
+            <div
+              key={column.id}
+              className="flex-shrink-0 w-72 flex flex-col bg-muted/50 rounded-lg"
+            >
+              {/* Column header */}
+              <div className="flex items-center justify-between p-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold">{column.name}</h3>
+                  <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                    {column.tasks.length}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    setAddingToColumn(
+                      addingToColumn === column.id ? null : column.id
+                    );
+                    setNewTaskTitle('');
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Add task input */}
+              {addingToColumn === column.id && (
+                <div className="px-3 pb-2 space-y-2">
+                  <Input
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    placeholder="Task title..."
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddTask(column.id);
+                      } else if (e.key === 'Escape') {
+                        setAddingToColumn(null);
+                        setNewTaskTitle('');
+                      }
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleAddTask(column.id)}
+                      disabled={creatingTask || !newTaskTitle.trim()}
+                    >
+                      {creatingTask ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      ) : (
+                        <Plus className="h-3 w-3 mr-1" />
+                      )}
+                      Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setAddingToColumn(null);
+                        setNewTaskTitle('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Task list */}
+              <Droppable droppableId={column.id}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={cn(
+                      'flex-1 px-3 pb-3 space-y-2 min-h-[60px] transition-colors rounded-b-lg',
+                      snapshot.isDraggingOver && 'bg-primary/5'
+                    )}
+                  >
+                    {column.tasks.map((task, index) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        index={index}
+                        onClick={handleTaskClick}
+                      />
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          ))}
+        </div>
+      </DragDropContext>
+
+      <TaskDetail
+        taskId={selectedTaskId}
+        open={showTaskDetail}
+        onClose={handleTaskDetailClose}
+        onTaskUpdated={fetchBoard}
+        onTaskDeleted={fetchBoard}
+        agents={agents}
+      />
+    </>
+  );
+}

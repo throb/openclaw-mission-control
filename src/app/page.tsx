@@ -12,7 +12,7 @@ export default function Home() {
         </div>
         
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-marmalade flex items-center justify-center">
             <span className="text-3xl">🤖</span>
           </div>
           <p className="text-muted-foreground max-w-md">
@@ -31,7 +31,7 @@ export default function Home() {
         </div>
 
         <p className="text-xs text-muted-foreground pt-8">
-          Requires 2FA authentication
+          Secure authentication required
         </p>
       </div>
     </main>

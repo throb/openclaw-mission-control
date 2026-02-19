@@ -43,6 +43,12 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Extended palette
+        marmalade: 'hsl(var(--marmalade))',
+        gold: 'hsl(var(--gold))',
+        wine: 'hsl(var(--wine))',
+        shimmer: 'hsl(var(--shimmer))',
+        ice: 'hsl(var(--ice))',
       },
       borderRadius: {
         lg: 'var(--radius)',

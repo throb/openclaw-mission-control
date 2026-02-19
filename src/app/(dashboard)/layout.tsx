@@ -15,13 +15,8 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // Require 2FA to be set up
-  if (!session.user.totpVerified) {
-    redirect('/setup-2fa');
-  }
-
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-main-gradient">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header user={session.user} />

@@ -44,13 +44,18 @@ model Agent {
   name        String
   description String?
   status      AgentStatus @default(ACTIVE)
+  modelId     String?
+  model       AIModel? @relation(fields: [modelId], references: [id])
+  discordChannelId String?
+  discordChannel   DiscordChannel? @relation(fields: [discordChannelId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   fileVersions FileVersion[]
   tasks        Task[]
   cronJobs     CronJob[]
   projects     ProjectAgent[]
+  skills       AgentSkill[]
 }
 
 enum AgentStatus {
@@ -123,9 +128,10 @@ model Column {
   position Int
   boardId  String
   board    Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  
+
   tasks    Task[]
-  
+  cronJobs CronJob[]
+
   @@index([boardId])
 }
 
@@ -219,9 +225,14 @@ model CronJob {
   nextRunAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Reference to OpenClaw cron job ID
   openclawJobId String? @unique
+
+  // Scheduled task creation: when this cron fires, create a task in this column
+  targetColumnId String?
+  targetColumn   Column?  @relation(fields: [targetColumnId], references: [id])
+  taskTemplate   Json?    // { title, description, priority, assignedAgentId }
 }
 
 model AIModel {
@@ -229,12 +240,14 @@ model AIModel {
   provider         String   // anthropic, openai, google, xai
   modelId          String   // claude-opus-4-5, gpt-4, etc.
   displayName      String
-  apiKeyEncrypted  String?  @db.Text
+  apiKeyEncrypted  String?
   isDefault        Boolean  @default(false)
   config           Json?    // Extra config like cost, context window
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  
+
+  agents           Agent[]
+
   @@unique([provider, modelId])
 }
 
@@ -255,4 +268,48 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// Skills
+// ============================================
+
+model Skill {
+  id          String   @id @default(cuid())
+  slug        String   @unique // directory name, e.g. "pdf", "morning-briefing"
+  name        String   // from YAML frontmatter
+  description String?  @db.Text
+  version     String?
+  license     String?
+  content     String   @db.Text // full SKILL.md content (including frontmatter)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agents      AgentSkill[]
+}
+
+model AgentSkill {
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  skillId String
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, skillId])
+}
+
+// ============================================
+// Discord Integration
+// ============================================
+
+model DiscordChannel {
+  id              String   @id @default(cuid())
+  channelId       String   @unique // Discord channel snowflake ID
+  guildId         String   // Discord guild/server snowflake ID
+  name            String   // Human-readable channel name
+  webhookUrl      String?  // Webhook URL for posting (encrypted)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  agents          Agent[]
 }

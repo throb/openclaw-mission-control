@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     const defaultColumns = [
-      { name: 'Backlog', position: 0 },
+      { name: 'Ideas', position: 0 },
       { name: 'To Do', position: 1 },
       { name: 'In Progress', position: 2 },
       { name: 'Review', position: 3 },

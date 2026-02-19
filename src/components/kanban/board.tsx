@@ -11,6 +11,7 @@ import { TaskDetail } from './task-detail';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { displayColumnName, isIdeasColumn } from '@/lib/kanban';
 import { Plus, Loader2, LayoutGrid, Circle } from 'lucide-react';
 
 interface ColumnData {
@@ -38,21 +39,69 @@ interface Agent {
 }
 
 const COLUMN_DOT_COLORS: Record<string, string> = {
+  ideas: 'text-muted-foreground',
   backlog: 'text-muted-foreground',
   recurring: 'text-purple-400',
   'in progress': 'text-primary',
   review: 'text-gold',
   done: 'text-green-500',
+  'to do': 'text-blue-400',
   todo: 'text-blue-400',
 };
 
 function getColumnDotColor(name: string): string {
+  if (isIdeasColumn(name)) return COLUMN_DOT_COLORS.ideas;
   return COLUMN_DOT_COLORS[name.toLowerCase()] || 'text-muted-foreground';
 }
 
 interface KanbanBoardProps {
   boardId: string;
   agents?: Agent[];
+}
+
+interface DisplayTask {
+  task: TaskData;
+  depth: number;
+}
+
+function buildDisplayTasks(tasks: TaskData[]): DisplayTask[] {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const children = new Map<string, TaskData[]>();
+
+  for (const task of tasks) {
+    if (!task.parentTaskId || !byId.has(task.parentTaskId)) continue;
+    const list = children.get(task.parentTaskId) || [];
+    list.push(task);
+    children.set(task.parentTaskId, list);
+  }
+
+  children.forEach((list) => {
+    list.sort((a, b) => a.position - b.position);
+  });
+
+  const ordered: DisplayTask[] = [];
+  const visited = new Set<string>();
+
+  const walk = (task: TaskData, depth: number) => {
+    if (visited.has(task.id)) return;
+    visited.add(task.id);
+    ordered.push({ task, depth });
+    for (const child of children.get(task.id) || []) {
+      walk(child, depth + 1);
+    }
+  };
+
+  for (const task of tasks) {
+    if (!task.parentTaskId || !byId.has(task.parentTaskId)) {
+      walk(task, 0);
+    }
+  }
+
+  for (const task of tasks) {
+    walk(task, 0);
+  }
+
+  return ordered;
 }
 
 export function KanbanBoard({ boardId, agents = [] }: KanbanBoardProps) {
@@ -199,8 +248,33 @@ export function KanbanBoard({ boardId, agents = [] }: KanbanBoardProps) {
     );
   }
 
+  const awaitingInput = board.columns.flatMap((column) =>
+    column.tasks
+      .filter((task) => task.awaitingInput)
+      .map((task) => ({ ...task, columnName: displayColumnName(column.name) }))
+  );
+
   return (
     <>
+      {awaitingInput.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+          <div className="text-xs font-medium text-amber-500 mb-2">
+            Awaiting Input
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {awaitingInput.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                className="text-xs rounded-md border border-amber-500/40 px-2 py-1 hover:bg-amber-500/15 transition-colors"
+                onClick={() => handleTaskClick(task)}
+              >
+                {task.title} · {task.columnName}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-280px)]">
           {board.columns.map((column) => (
@@ -212,7 +286,7 @@ export function KanbanBoard({ boardId, agents = [] }: KanbanBoardProps) {
               <div className="flex items-center justify-between p-3 pb-2">
                 <div className="flex items-center gap-2">
                   <Circle className={cn('w-2.5 h-2.5 fill-current', getColumnDotColor(column.name))} />
-                  <h3 className="text-sm font-semibold">{column.name}</h3>
+                  <h3 className="text-sm font-semibold">{displayColumnName(column.name)}</h3>
                   <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5 font-mono">
                     {column.tasks.length}
                   </span>
@@ -288,11 +362,12 @@ export function KanbanBoard({ boardId, agents = [] }: KanbanBoardProps) {
                       snapshot.isDraggingOver && 'bg-primary/5'
                     )}
                   >
-                    {column.tasks.map((task, index) => (
+                    {buildDisplayTasks(column.tasks).map(({ task, depth }, index) => (
                       <TaskCard
                         key={task.id}
                         task={task}
                         index={index}
+                        depth={depth}
                         onClick={handleTaskClick}
                       />
                     ))}

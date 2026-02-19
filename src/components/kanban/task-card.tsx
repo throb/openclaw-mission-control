@@ -19,8 +19,10 @@ export interface TaskData {
   title: string;
   description: string | null;
   priority: 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+  awaitingInput: boolean;
   position: number;
   columnId: string;
+  parentTaskId: string | null;
   assignedAgent: {
     id: string;
     name: string;
@@ -48,10 +50,11 @@ const priorityConfig: Record<
 interface TaskCardProps {
   task: TaskData;
   index: number;
+  depth?: number;
   onClick: (task: TaskData) => void;
 }
 
-export function TaskCard({ task, index, onClick }: TaskCardProps) {
+export function TaskCard({ task, index, depth = 0, onClick }: TaskCardProps) {
   const priority = priorityConfig[task.priority];
 
   return (
@@ -62,8 +65,10 @@ export function TaskCard({ task, index, onClick }: TaskCardProps) {
           {...provided.draggableProps}
           className={cn(
             'group rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md cursor-pointer',
-            snapshot.isDragging && 'shadow-lg ring-2 ring-primary/50 rotate-[2deg]'
+            snapshot.isDragging && 'shadow-lg ring-2 ring-primary/50 rotate-[2deg]',
+            depth > 0 && 'border-primary/20 bg-primary/5'
           )}
+          style={{ marginLeft: depth > 0 ? `${Math.min(depth, 3) * 12}px` : undefined }}
           onClick={() => onClick(task)}
         >
           <div className="flex items-start gap-2">
@@ -93,6 +98,14 @@ export function TaskCard({ task, index, onClick }: TaskCardProps) {
                 >
                   {priority.label}
                 </Badge>
+                {task.awaitingInput && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 border-amber-500/40 text-amber-500"
+                  >
+                    Awaiting Input
+                  </Badge>
+                )}
 
                 {task.assignedAgent && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">

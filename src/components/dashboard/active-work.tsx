@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { displayColumnName } from '@/lib/kanban';
 
 interface TaskSummary {
   id: string;
@@ -148,7 +149,7 @@ export function ActiveWork() {
                       key={col.name}
                       className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
                     >
-                      <span className="text-muted-foreground">{col.name}:</span>
+                      <span className="text-muted-foreground">{displayColumnName(col.name)}:</span>
                       <span className="font-medium">{col.count}</span>
                     </span>
                   ))}
@@ -171,7 +172,7 @@ export function ActiveWork() {
                     </Badge>
                     <span className="flex-1 truncate">{task.title}</span>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {task.column}
+                      {displayColumnName(task.column)}
                     </span>
                     {task.assignedAgent && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">

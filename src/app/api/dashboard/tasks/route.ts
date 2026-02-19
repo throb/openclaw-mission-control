@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { displayColumnName } from '@/lib/kanban';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,7 @@ export async function GET() {
             id: t.id,
             title: t.title,
             priority: t.priority,
-            column: c.name,
+            column: displayColumnName(c.name),
             board: b.name,
             assignedAgent: t.assignedAgent,
             updatedAt: t.updatedAt,
@@ -58,7 +59,7 @@ export async function GET() {
       // Group tasks by column for the breakdown
       const columnBreakdown = project.boards.flatMap((b) =>
         b.columns.map((c) => ({
-          name: c.name,
+          name: displayColumnName(c.name),
           count: c.tasks.length,
         }))
       );

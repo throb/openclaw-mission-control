@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { displayColumnName, isIdeasColumn } from '@/lib/kanban';
 
 interface ColumnBreakdown {
   name: string;
@@ -24,6 +25,7 @@ interface ProjectSummary {
 }
 
 const COLUMN_COLORS: Record<string, string> = {
+  ideas: 'bg-muted-foreground/40',
   backlog: 'bg-muted-foreground/40',
   'in progress': 'bg-primary',
   review: 'bg-yellow-500',
@@ -31,6 +33,7 @@ const COLUMN_COLORS: Record<string, string> = {
 };
 
 const COLUMN_DOT_COLORS: Record<string, string> = {
+  ideas: 'bg-muted-foreground/40',
   backlog: 'bg-muted-foreground/40',
   'in progress': 'bg-primary',
   review: 'bg-yellow-500',
@@ -38,11 +41,13 @@ const COLUMN_DOT_COLORS: Record<string, string> = {
 };
 
 function getColumnColor(columnName: string): string {
+  if (isIdeasColumn(columnName)) return COLUMN_COLORS.ideas;
   const key = columnName.toLowerCase();
   return COLUMN_COLORS[key] || 'bg-muted-foreground/30';
 }
 
 function getDotColor(columnName: string): string {
+  if (isIdeasColumn(columnName)) return COLUMN_DOT_COLORS.ideas;
   const key = columnName.toLowerCase();
   return COLUMN_DOT_COLORS[key] || 'bg-muted-foreground/30';
 }
@@ -133,7 +138,7 @@ export function KanbanSummary() {
                             width: `${(col.count / total) * 100}%`,
                             minWidth: '4px',
                           }}
-                          title={`${col.name}: ${col.count}`}
+                          title={`${displayColumnName(col.name)}: ${col.count}`}
                         />
                       ))}
                     </div>
@@ -156,7 +161,7 @@ export function KanbanSummary() {
                         getDotColor(name)
                       )}
                     />
-                    {name}
+                    {displayColumnName(name)}
                   </div>
                 ))}
               </div>

@@ -47,6 +47,20 @@ export async function GET(
         attachments: {
           orderBy: { createdAt: 'desc' },
         },
+        parentTask: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        subtasks: {
+          select: {
+            id: true,
+            title: true,
+            awaitingInput: true,
+          },
+          orderBy: { position: 'asc' },
+        },
       },
     });
 
@@ -78,7 +92,16 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { title, description, priority, columnId, position, assignedAgentId } = body;
+    const {
+      title,
+      description,
+      priority,
+      columnId,
+      position,
+      assignedAgentId,
+      parentTaskId,
+      awaitingInput,
+    } = body;
 
     const existing = await prisma.task.findUnique({
       where: { id: params.id },
@@ -126,12 +149,33 @@ export async function PATCH(
       }
     }
 
+    if (parentTaskId !== undefined && parentTaskId !== null && parentTaskId !== '') {
+      if (parentTaskId === params.id) {
+        return NextResponse.json(
+          { error: 'Task cannot be its own parent' },
+          { status: 400 }
+        );
+      }
+      const parent = await prisma.task.findUnique({
+        where: { id: parentTaskId },
+        select: { id: true },
+      });
+      if (!parent) {
+        return NextResponse.json(
+          { error: 'Parent task not found' },
+          { status: 404 }
+        );
+      }
+    }
+
     // Build update data
     const updateData: Record<string, unknown> = {};
     if (title !== undefined) updateData.title = title.trim();
     if (description !== undefined) updateData.description = description?.trim() || null;
     if (priority !== undefined) updateData.priority = priority;
     if (assignedAgentId !== undefined) updateData.assignedAgentId = assignedAgentId || null;
+    if (parentTaskId !== undefined) updateData.parentTaskId = parentTaskId || null;
+    if (awaitingInput !== undefined) updateData.awaitingInput = Boolean(awaitingInput);
 
     // Handle column change with reordering
     if (columnId !== undefined && columnId !== existing.columnId) {

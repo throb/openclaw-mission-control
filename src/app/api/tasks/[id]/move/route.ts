@@ -1,6 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { isIdeasColumn, isTodoColumn } from '@/lib/kanban';
+
+interface CandidateAgent {
+  id: string;
+  name: string;
+}
+
+async function pickAgentForTask(projectId: string): Promise<CandidateAgent | null> {
+  const projectScopedAgents = await prisma.projectAgent.findMany({
+    where: {
+      projectId,
+      agent: { status: 'ACTIVE' },
+    },
+    select: {
+      agent: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+
+  let candidates = projectScopedAgents.map((r) => r.agent);
+  if (candidates.length === 0) {
+    candidates = await prisma.agent.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, name: true },
+    });
+  }
+
+  if (candidates.length === 0) return null;
+
+  const candidateIds = candidates.map((c) => c.id);
+  const assignedTasks = await prisma.task.findMany({
+    where: {
+      assignedAgentId: { in: candidateIds },
+      column: {
+        board: { projectId },
+      },
+      NOT: {
+        column: {
+          name: { equals: 'Done', mode: 'insensitive' },
+        },
+      },
+    },
+    select: { assignedAgentId: true },
+  });
+
+  const workload = new Map<string, number>();
+  for (const candidate of candidates) {
+    workload.set(candidate.id, 0);
+  }
+  for (const task of assignedTasks) {
+    if (!task.assignedAgentId) continue;
+    workload.set(task.assignedAgentId, (workload.get(task.assignedAgentId) || 0) + 1);
+  }
+
+  candidates.sort((a, b) => {
+    const loadDiff = (workload.get(a.id) || 0) - (workload.get(b.id) || 0);
+    if (loadDiff !== 0) return loadDiff;
+    return a.name.localeCompare(b.name);
+  });
+
+  return candidates[0];
+}
 
 export async function POST(
   request: NextRequest,
@@ -31,6 +94,18 @@ export async function POST(
 
     const task = await prisma.task.findUnique({
       where: { id: params.id },
+      include: {
+        column: {
+          include: {
+            board: {
+              select: {
+                id: true,
+                projectId: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!task) {
@@ -43,6 +118,14 @@ export async function POST(
     // Verify destination column exists
     const destColumn = await prisma.column.findUnique({
       where: { id: columnId },
+      include: {
+        board: {
+          select: {
+            id: true,
+            projectId: true,
+          },
+        },
+      },
     });
 
     if (!destColumn) {
@@ -55,6 +138,10 @@ export async function POST(
     const sourceColumnId = task.columnId;
     const sourcePosition = task.position;
     const isSameColumn = sourceColumnId === columnId;
+    const movedIdeasToTodo =
+      !isSameColumn &&
+      isIdeasColumn(task.column.name) &&
+      isTodoColumn(destColumn.name);
 
     if (isSameColumn) {
       // Moving within the same column
@@ -121,7 +208,7 @@ export async function POST(
     }
 
     // Update the task's position and column
-    const updatedTask = await prisma.task.update({
+    let updatedTask = await prisma.task.update({
       where: { id: params.id },
       data: {
         columnId,
@@ -144,6 +231,66 @@ export async function POST(
         },
       },
     });
+
+    const shouldAutoAssign =
+      movedIdeasToTodo &&
+      !updatedTask.assignedAgent &&
+      task.column.board.projectId === destColumn.board.projectId;
+
+    if (shouldAutoAssign) {
+      const selectedAgent = await pickAgentForTask(destColumn.board.projectId);
+      if (selectedAgent) {
+        updatedTask = await prisma.task.update({
+          where: { id: params.id },
+          data: {
+            assignedAgentId: selectedAgent.id,
+          },
+          include: {
+            assignedAgent: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+              },
+            },
+            column: {
+              select: {
+                id: true,
+                name: true,
+                boardId: true,
+              },
+            },
+          },
+        });
+
+        // Log orchestrator assignment on the task conversation timeline.
+        await prisma.thread.create({
+          data: {
+            taskId: params.id,
+            messages: {
+              create: {
+                content: `Orchestrator assigned this task to ${selectedAgent.name} after it moved from ${task.column.name} to ${destColumn.name}.`,
+                authorType: 'USER',
+                authorId: null,
+              },
+            },
+          },
+        });
+      } else {
+        await prisma.thread.create({
+          data: {
+            taskId: params.id,
+            messages: {
+              create: {
+                content: `Orchestrator could not assign this task automatically after moving to ${destColumn.name} because no ACTIVE agents are available.`,
+                authorType: 'USER',
+                authorId: null,
+              },
+            },
+          },
+        });
+      }
+    }
 
     return NextResponse.json(updatedTask);
   } catch (error) {

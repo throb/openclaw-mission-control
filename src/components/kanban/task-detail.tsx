@@ -55,6 +55,7 @@ interface Message {
 }
 
 interface TaskDetailData extends TaskData {
+  assignedAgentId: string | null;
   column: {
     id: string;
     name: string;
@@ -66,6 +67,15 @@ interface TaskDetailData extends TaskData {
     };
   };
   threads: Thread[];
+  parentTask: {
+    id: string;
+    title: string;
+  } | null;
+  subtasks: Array<{
+    id: string;
+    title: string;
+    awaitingInput: boolean;
+  }>;
   attachments: Array<{
     id: string;
     filename: string;
@@ -107,6 +117,9 @@ export function TaskDetail({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('P2');
   const [assignedAgentId, setAssignedAgentId] = useState('');
+  const [parentTaskId, setParentTaskId] = useState('');
+  const [awaitingInput, setAwaitingInput] = useState(false);
+  const [parentTaskOptions, setParentTaskOptions] = useState<Array<{ id: string; title: string }>>([]);
 
   // Thread/message state
   const [newMessage, setNewMessage] = useState('');
@@ -124,6 +137,20 @@ export function TaskDetail({
       setDescription(data.description || '');
       setPriority(data.priority);
       setAssignedAgentId(data.assignedAgentId || '');
+      setParentTaskId(data.parentTaskId || '');
+      setAwaitingInput(Boolean(data.awaitingInput));
+
+      const boardRes = await fetch(`/api/boards/${data.column.boardId}`);
+      if (boardRes.ok) {
+        const board = await boardRes.json();
+        const options = (board.columns || [])
+          .flatMap((c: { tasks?: Array<{ id: string; title: string }> }) => c.tasks || [])
+          .filter((t: { id: string }) => t.id !== data.id)
+          .map((t: { id: string; title: string }) => ({ id: t.id, title: t.title }));
+        setParentTaskOptions(options);
+      } else {
+        setParentTaskOptions([]);
+      }
     } catch (error) {
       console.error('Failed to fetch task:', error);
     } finally {
@@ -149,6 +176,8 @@ export function TaskDetail({
           description: description || null,
           priority,
           assignedAgentId: assignedAgentId || null,
+          parentTaskId: parentTaskId || null,
+          awaitingInput,
         }),
       });
       if (!res.ok) throw new Error('Failed to update task');
@@ -297,12 +326,64 @@ export function TaskDetail({
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="task-parent">Parent Task</Label>
+                <Select
+                  id="task-parent"
+                  value={parentTaskId}
+                  onChange={(e) => setParentTaskId(e.target.value)}
+                >
+                  <option value="">No parent</option>
+                  {parentTaskOptions.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="awaiting-input">Workflow State</Label>
+                <label
+                  htmlFor="awaiting-input"
+                  className="h-10 rounded-md border border-input px-3 flex items-center gap-2 text-sm"
+                >
+                  <input
+                    id="awaiting-input"
+                    type="checkbox"
+                    checked={awaitingInput}
+                    onChange={(e) => setAwaitingInput(e.target.checked)}
+                  />
+                  Awaiting Input
+                </label>
+              </div>
+            </div>
+
             {/* Status info */}
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>Column: {task.column?.name}</span>
+              {task.parentTask && <span>Parent: {task.parentTask.title}</span>}
               <span>Created: {formatDateTime(task.createdAt)}</span>
               <span>Updated: {formatDateTime(task.updatedAt)}</span>
             </div>
+
+            {task.subtasks.length > 0 && (
+              <div className="space-y-2 text-sm">
+                <Label>Subtasks</Label>
+                <div className="space-y-1 rounded-md border p-3">
+                  {task.subtasks.map((subtask) => (
+                    <div key={subtask.id} className="flex items-center gap-2">
+                      <span className="truncate">{subtask.title}</span>
+                      {subtask.awaitingInput && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-500">
+                          Awaiting Input
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Save & Delete */}
             <div className="flex items-center justify-between border-t pt-4">

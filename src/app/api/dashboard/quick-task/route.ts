@@ -48,7 +48,7 @@ Respond ONLY with a JSON object:
   "priority": "P0|P1|P2|P3|P4"
 }
 
-Priority guide: P0=critical/blocking, P1=high/important, P2=medium/normal, P3=low, P4=backlog.
+Priority guide: P0=critical/blocking, P1=high/important, P2=medium/normal, P3=low, P4=ideas.
 Respond with ONLY the JSON, no other text.`;
 
         try {

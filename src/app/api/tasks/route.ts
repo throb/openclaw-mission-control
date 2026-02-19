@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, priority, columnId, assignedAgentId } = body;
+    const { title, description, priority, columnId, assignedAgentId, parentTaskId, awaitingInput } = body;
 
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
       return NextResponse.json(
@@ -60,6 +60,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (parentTaskId) {
+      const parent = await prisma.task.findUnique({
+        where: { id: parentTaskId },
+        select: { id: true },
+      });
+      if (!parent) {
+        return NextResponse.json(
+          { error: 'Parent task not found' },
+          { status: 404 }
+        );
+      }
+    }
+
     // Get the max position in the column to place the task at the end
     const maxPositionTask = await prisma.task.findFirst({
       where: { columnId },
@@ -74,8 +87,10 @@ export async function POST(request: NextRequest) {
         title: title.trim(),
         description: description?.trim() || null,
         priority: priority || 'P2',
+        awaitingInput: Boolean(awaitingInput),
         position,
         columnId,
+        parentTaskId: parentTaskId || null,
         assignedAgentId: assignedAgentId || null,
       },
       include: {

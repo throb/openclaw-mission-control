@@ -63,6 +63,7 @@ export function TaskCard({ task, index, depth = 0, onClick }: TaskCardProps) {
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
+          {...provided.dragHandleProps}
           className={cn(
             'group rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md cursor-pointer',
             snapshot.isDragging && 'shadow-lg ring-2 ring-primary/50 rotate-[2deg]',
@@ -72,11 +73,7 @@ export function TaskCard({ task, index, depth = 0, onClick }: TaskCardProps) {
           onClick={() => onClick(task)}
         >
           <div className="flex items-start gap-2">
-            <div
-              {...provided.dragHandleProps}
-              className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
 

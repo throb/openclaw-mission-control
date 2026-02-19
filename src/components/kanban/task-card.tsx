@@ -69,7 +69,10 @@ export function TaskCard({ task, index, depth = 0, onClick }: TaskCardProps) {
             snapshot.isDragging && 'shadow-lg ring-2 ring-primary/50 rotate-[2deg]',
             depth > 0 && 'border-primary/20 bg-primary/5'
           )}
-          style={{ marginLeft: depth > 0 ? `${Math.min(depth, 3) * 12}px` : undefined }}
+          style={{
+            ...(provided.draggableProps.style || {}),
+            marginLeft: depth > 0 ? `${Math.min(depth, 3) * 12}px` : undefined,
+          }}
           onClick={() => onClick(task)}
         >
           <div className="flex items-start gap-2">
